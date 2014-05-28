@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.daum.myone.frontapi.mvc.persistence.MyoneCardMapper" >
+    
+   <select id="getJoinMyoneCardList" resultType="MyoneCard">
+        select c.*
+        		, substr(c.crdtno, 13, 16) formatcrdtno
+        		, decode(c.regtype, 'A', f.issurid, d.cardid) cardid
+            	, decode(c.regtype, 'A', f.issurnm, d.cardnm) cardnm            
+        		, d.imgurl
+        		, (select count(1) from membership where c.myoneid=myoneid and sttscd='1' and compid in (select compid from comp where regtype in ('B', 'C') and sttscd='1')) membershipcount
+        		, e.cardinfotype
+		from(	
+			select *
+			from(
+				select a.*, rownum rnum
+				from(
+					select * 
+					from myonecard x
+					<include refid="where_getMyOneCardList"/>
+				    order by fstrgstdttm asc
+					<!-- order by lstchngdttm desc-->
+				) a
+			) b
+			<if test='pagingflag != "N"'>where b.rnum between #{startnum} and #{finishnum}</if>
+		) c, card d, cardgods e, issur f
+		where
+				c.cardgodsid=d.cardid(+)
+			and c.cardgodsid=e.cardgodsid(+)
+      		and e.issurid=f.issurid(+)
+		order by
+				<if test="orderMyoneidCond != null">
+				    decode(c.myoneid, #{orderMyoneidCond}, 0, 1) asc, 
+				</if> 
+				<if test="orderCardgodsidCond != null">
+				    decode(c.cardgodsid, #{orderCardgodsidCond}, 0, 1) asc, 
+				</if>
+				c.fstrgstdttm asc
+				
+    </select>
+    
+    
+    <sql id="where_getMyOneCardList">
+		where
+				1=1				
+			<if test="ignoresttscdCond == null">
+				and x.sttscd = '1'
+			</if>			
+			<if test="clselostdtCond != null">
+				and x.clselostdt is not null	
+			</if>
+			<if test="ciCond != null">
+			    and x.myoneid in (select myoneid from myonecardmember where ci= (select ci from webuser where userseq = #{ciCond}) )
+			</if>
+			<if test="exceptCompidCond != null">
+				and not exists (select 1 from membership where myoneid=x.myoneid and compid=#{exceptCompidCond})
+			</if>
+			<if test="existMemberShipCond != null">
+			    <if test='existMemberShipCond == "Y"'>
+			 	and exists (
+			 				select 1 from membership 
+			 				where 
+			 					x.myoneid=myoneid and sttscd='1'
+			 				and compid in (
+			 									select compid from comp 
+			 									where 
+			 											(
+                											sttscd='1'
+										                	<if test="userseqCond != null">
+										                	or
+										                	(
+										                		sttscd='5' and exists (select 1 from webuser where userseq=#{userseqCond} and admincd='0') 
+										                	)
+										                	or
+										                	(
+										                		sttscd='6' and exists (select 1 from webuser where userseq=#{userseqCond} and admincd in ('0', '1')) 
+										                	)
+										                	</if>
+										                )
+			 										and regtype in ('B', 'C')
+			 								)
+			 				<if test="existsCompidCond != null"> 
+			 				and compid=#{existsCompidCond}
+			 				</if>
+			 				)
+			 	</if>
+			 	<if test='existMemberShipCond == "N"'>
+			 	and not exists (
+			 					select 1 from membership 
+			 					where 
+			 						x.myoneid=myoneid and sttscd='1'
+			 					and compid in (
+			 									select compid from comp 
+			 									where 
+			 											(
+                											sttscd='1'
+										                	<if test="userseqCond != null">
+										                	or
+										                	(
+										                		sttscd='5' and exists (select 1 from webuser where userseq=#{userseqCond} and admincd='0') 
+										                	)
+										                	or
+										                	(
+										                		sttscd='6' and exists (select 1 from webuser where userseq=#{userseqCond} and admincd in ('0', '1')) 
+										                	)
+										                	</if>
+										                )
+			 										and regtype in ('B', 'C')
+			 								)
+			 					<if test="existsCompidCond != null"> 
+			 					and compid=#{existsCompidCond}
+			 					</if>
+			 					)
+			 	</if>
+			</if>	
+			<if test="regtypeCond != null">
+			    and x.regtype=#{regtypeCond}
+			</if>		
+	</sql>
+</mapper>

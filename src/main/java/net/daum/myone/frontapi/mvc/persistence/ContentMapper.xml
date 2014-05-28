@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.daum.myone.frontapi.mvc.persistence.ContentMapper">
+   
+	<resultMap id="mapEventContSet" type="EventContent">
+		<id property="setseq" 					column="setseq"/>
+	    <result property="areaid" 				column="areaid"/>
+	    <result property="cateid" 				column="cateid"/>
+	    <result property="catename" 			column="catename"/>
+	    <result property="bgndttm" 				column="bgndttm"/>
+	    <result property="enddttm" 				column="enddttm"/>
+	    <collection property="contsetvaluelist" ofType="ContSetValue" resultMap="subMapContSetValue" />
+	</resultMap>
+	
+	<resultMap id="mapContSet" type="ContSet">
+		<id property="setseq" 					column="setseq"/>
+	    <result property="areaid" 				column="areaid"/>
+	    <result property="cateid" 				column="cateid"/>
+	    <result property="catename" 			column="catename"/>
+	    <result property="bgndttm" 				column="bgndttm"/>
+	    <result property="enddttm" 				column="enddttm"/>
+	    <collection property="contsetvaluelist" 	ofType="ContSetValue"	resultMap="subMapContSetValue" />
+	</resultMap>
+	
+	<resultMap id="subMapContSetValue" type="ContSetValue">
+	    <id property="valuenum" 				column="valuenum"/>	    
+	    <result property="text" 				column="text"/>
+	    <result property="imgurl" 				column="imgurl"/>
+	    <result property="linkurl" 				column="linkurl"/>
+	    <result property="htmltext" 			column="htmltext"/>
+	    <result property="compid" 				column="compid"/>
+	    <result property="eventid" 				column="eventid"/>
+	    <result property="noticeid" 			column="noticeid"/>
+	    <result property="couponseq" 			column="couponseq"/>
+	    <result property="codecate" 			column="codecate"/>
+	    <result property="code" 				column="code"/>
+		<association property="comp" 			column="compid" javaType="Comp" resultMap="subMapComp" />
+		<association property="event" 			column="eventid" javaType="Event" resultMap="subMapEvent" />
+		<association property="notice" 			column="noticeid" javaType="Notice" resultMap="subMapNotice" />
+		<association property="coupon" 			column="couponseq" javaType="Coupon" resultMap="subMapCoupon" />
+	</resultMap>
+	
+	<resultMap id="subMapComp" type="Comp">
+		<id property="compid" 					column="compcompid"/>
+	    <result property="compnm" 				column="compnm"/>	
+		<result property="linedesc" 			column="linedesc"/>
+		<result property="simpledesc" 			column="simpledesc"/>
+	</resultMap>
+	
+	<resultMap id="subMapEvent" type="Event">
+		<id property="seqno" 					column="eventseqno"/>
+	    <result property="compid" 				column="eventcompid"/>	
+		<result property="subject" 				column="eventsubject"/>
+		<result property="fromdt" 				column="fromdt"/>
+		<result property="todt" 				column="todt"/>
+		<result property="linkurl" 				column="eventlinkurl"/>
+	</resultMap>
+	
+	<resultMap id="subMapNotice" type="Notice">
+		<id property="seqno" 					column="noticeseqno"/>
+	    <result property="compid" 				column="noticecompid"/>	
+		<result property="subject" 				column="noticesubject"/>		
+	</resultMap>
+	
+	<resultMap id="subMapCoupon" type="Coupon">
+		<id property="couponseq" 				column="couponseq"/>
+	    <result property="compid" 				column="couponcompid"/>	
+		<result property="couponnm" 			column="couponnm"/>		
+	</resultMap>
+	
+	<sql id="contSetList">
+	    select *
+		from (
+			  select a.* 
+			  from (	
+				select b.*
+						, c.valuenum, c.text, c.imgurl, c.linkurl, c.htmltext, c.compid, c.eventid, c.noticeid, c.code, c.codecate
+						, d.compid compcompid, d.compnm, d.linedesc, d.simpledesc	
+						, e.seqno eventseqno, e.compid eventcompid, e.subject eventsubject, e.fromdt, e.todt, e.linkurl eventlinkurl				
+						, f.seqno noticeseqno, f.compid noticecompid, f.subject noticesubject	
+						, g.couponseq, g.compid couponcompid, g.couponnm
+				from (
+					select aaa.*
+					from(
+						select aa.*, rownum rnum
+						from (	
+							select a.*
+									, decode(cateid, null, null, (select catename from contcategory where areaid=a.areaid and cateid=a.cateid)) catename
+							from contset a
+							where
+								1=1
+								<if test="areaidCond != null">
+								and a.areaid=#{areaidCond}
+								</if>
+								<if test="areaidsCond != null">
+									and a.areaid in 
+									<foreach item="areaidsCond" collection="areaidsCond" open="(" separator="," close=")">
+							      	#{areaidsCond}
+							      </foreach>
+								</if>
+								<if test="cateidCond != null">
+								and a.cateid=#{cateidCond}			
+								</if>		
+								<if test="compidCond != null">
+								and a.setseq in (select setseq from contsetvalue where compid=#{compidCond})
+								</if>				
+								and a.dispflag='Y'	
+								<if test='dateflagCond != "N"'>	
+								and to_char(sysdate, 'yyyymmddhh24miss') between a.bgndttm and a.enddttm
+								</if>								
+								<if test='mainynCond == "Y"'>
+								and exists (select 1 from contsetvalue where a.setseq=setseq and codecate='C_MAIN_YN' and code='Y')
+								</if>
+							<if test='randomynCond == "Y"'>
+					    	order by dbms_random.random 
+							</if>							
+						) aa
+					) aaa
+					<if test='pagingflag != "N"'>where rnum between #{startnum} and #{finishnum}</if>						
+				) b, contsetvalue c, comp d, event e, notice f, coupon g
+				where
+							b.setseq=c.setseq(+)
+						and c.compid=d.compid(+)
+						and c.eventid=e.seqno(+)
+						and c.noticeid=f.seqno(+)
+						and c.couponseq=g.couponseq(+)
+				order by
+					<if test='randomynCond == "Y"'>
+		    			dbms_random.random, 
+					</if> 
+					b.regtype, b.disporder, c.valuenum
+			) a
+		)
+		order by
+		<if test='randomynCond == "Y"'>
+		    dbms_random.random, 
+		</if>
+		 regtype, disporder, valuenum
+	</sql>
+	
+	<select id="getEventContSetList" resultMap="mapEventContSet">
+		<include refid="contSetList"/>
+	</select>
+	
+	
+	
+</mapper>

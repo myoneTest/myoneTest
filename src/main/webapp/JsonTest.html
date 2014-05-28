@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script type="text/javascript" src="/resources/js/lib/jquery-2.1.1.min.js"></script>
+</head>
+<body>
+<div>
+userseq : <input type="text" name="userseq" value="409745" /><input type="button" onclick="javascript:test();" value="listCompMain 요청">
+</div>
+<div id="myoneCardList">
+	<ul id="myoneCard" style="display: none; border: 1px">
+	  <li>No : <span>#no</span></li>
+      <li>마이원 id : <span>#myoneid</span></li>
+      <li>카드명 : <span>#cardName</span></li>
+      <li>발급날짜 : <span>#issudt</span></li>
+    </ul>
+</div>
+<script>
+function test() {
+	$("#myoneCardList > ul:eq(0)").siblings().remove();
+	$.ajax({
+	  url: "/json/membership/listCompMain",
+	  data: {
+	    "userseq": $("[name=userseq]").val(),
+	    "banimgcd": "I"
+	  },
+	  success: function( json ) {
+		 if(json.resultCode === "E") {
+			 alert("에러");
+		 }else if(json.resultCode === "Y") {
+		    renderMyoneCard(json.resultList.myonecardList);
+		 }
+	  }
+	});
+}
+
+function renderMyoneCard(list) {
+	var dummyHtml = $("#myoneCardList").html();
+	if(list.length === 0) {
+		alert("마이원 카드 리스트가 없습니다.");
+		return;
+	}
+	for(var i = 0, listLength = list.length; i < listLength; i ++) {
+		var htmlTmpl = dummyHtml;
+		var html = htmlTmpl.replace("#no", i+1);
+		html = html.replace("#myoneid", list[i].myoneid);
+		html = html.replace("#cardName", list[i].cardnm);
+		html = html.replace("#issudt", list[i].issudt);
+		$("#myoneCardList").append(html);
+	}
+	$("#myoneCardList > ul:eq(0)").siblings().show();
+}
+</script>
+</body>
+</html>

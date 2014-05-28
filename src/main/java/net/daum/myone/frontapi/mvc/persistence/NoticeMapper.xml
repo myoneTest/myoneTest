@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.daum.myone.frontapi.mvc.persistence.NoticeMapper">
+	
+	<select id="getNoticeList" resultType="Notice">
+		select c.*
+				<if test="userseq != null">
+				,(case when <![CDATA[to_char(sysdate-11, 'yyyymmdd')||'000000' < c.fstrgstdttm]]> then
+				    nvl((select 'Y' from noticeread where seqno=c.seqno and userseq= #{userseq, jdbcType=VARCHAR}), 'N')
+				  else
+				  	'Y'
+				  end
+				 ) readflag
+				</if>
+				<if test="userseq == null">
+				,(case when <![CDATA[to_char(sysdate-11, 'yyyymmdd')||'000000' < c.fstrgstdttm]]> then
+		            'N'
+		          else
+		            'Y'
+		          end) readflag
+				</if>
+		from(	
+			select *
+			from(
+				select a.*, rownum rnum
+				from(
+					select * 
+					from notice x
+					<include refid="where_noticeList"/>
+					<if test="ordertypeCond == null">
+					order by topdisplayyn desc, sortno, fstrgstdttm desc
+					</if>
+					<if test='ordertypeCond == "B"'>		
+					order by dbms_random.random
+					</if>
+				) a
+			) b
+			<if test='pagingflag != "N"'>where b.rnum between #{startnum} and #{finishnum}</if>
+		) c
+		<if test="ordertypeCond == null">
+		order by c.topdisplayyn desc, c.sortno, c.fstrgstdttm desc
+		</if>
+		<if test='ordertypeCond == "B"'>		
+		order by dbms_random.random
+		</if>
+	</select>
+	
+	<sql id="where_noticeList">
+		where			
+				displayyn='Y'	
+			<if test="typeCond != null">
+			and x.type=#{typeCond}	
+			</if>			
+			<if test="daumflagCond != null">
+			and x.issurid is null
+			and x.compid is null			
+			</if>			
+			<if test="displaytypeCond != null">
+			and x.displaytype=#{displaytypeCond}			
+			</if>	
+			<if test="mydisplayynCond != null">
+			and x.mydisplayyn=#{mydisplayynCond}			
+			</if>	
+			<if test="maindisplayynCond != null">
+			and x.maindisplayyn=#{maindisplayynCond}			
+			</if>			
+			<if test='readflagCond == "N"'>
+			and not exists (select 1 from noticeread where x.seqno=seqno and userseq=#{userseq, jdbcType=VARCHAR})
+			</if>	
+			<if test="compidCond != null">
+			and x.compid=#{compidCond}			
+			</if>		
+			
+	</sql>
+	
+	
+</mapper>
